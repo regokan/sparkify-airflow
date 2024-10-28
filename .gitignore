@@ -194,4 +194,40 @@ pyrightconfig.json
 .history
 .ionide
 
+##### Common #####
+
+# Local files
+*.local
+
+####### Terraform #######
+
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Ignore Terraform crash log files
+crash.log
+
+# Ignore Terraform variable files
+*.tfvars
+*.tfvars.json
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore Terraform plan files
+*.tfplan
+
+# Ignore .terraform directory
+.terraform/
+
+# Ignore backup files
+*.backup
+
+# Ignore any other files that should not be committed
+.terraform.lock.hcl
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python
