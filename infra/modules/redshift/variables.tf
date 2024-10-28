@@ -1,19 +1,5 @@
-# AWS Access Key
-variable "aws_access_key" {
-  description = "AWS Access Key"
-  type        = string
-}
-
-# AWS Secret Key
-variable "aws_secret_key" {
-  description = "AWS Secret Key"
-  type        = string
-}
-
-# AWS Region
-variable "region" {
-  description = "AWS Region"
-  default     = "us-east-1"
+variable "sparkify_redshift_serverless_role_arn" {
+  description = "The ARN of the Sparkify Redshift Serverless role"
   type        = string
 }
 
@@ -42,4 +28,14 @@ variable "redshift_password" {
   description = "Password for Redshift database access"
   type        = string
   sensitive   = true
+}
+
+variable "sparkify_redshift_subnet_ids" {
+  description = "The subnet IDs for the Sparkify Redshift workgroup"
+  type        = list(string)
+}
+
+variable "sparkify_redshift_security_group_id" {
+  description = "The security group ID for the Sparkify Redshift workgroup"
+  type        = string
 }
