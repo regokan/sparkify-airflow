@@ -199,6 +199,9 @@ pyrightconfig.json
 # Local files
 *.local
 
+# Env files
+.env
+
 ####### Terraform #######
 
 # Ignore Terraform state files
