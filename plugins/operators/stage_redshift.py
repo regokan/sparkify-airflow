@@ -1,5 +1,4 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.exceptions import AirflowException
@@ -44,10 +43,6 @@ class StageToRedshiftOperator(BaseOperator):
 
     def execute(self, context):
         self.log.info("Starting to stage data from S3 to Redshift")
-
-        # Set up AWS credentials using AwsBaseHook
-        aws_hook = AwsBaseHook(aws_conn_id=self.aws_credentials_id)
-        credentials = aws_hook.get_credentials()
 
         # Prepare connection details for PostgresHook specific to Redshift
         extra_dejson = {

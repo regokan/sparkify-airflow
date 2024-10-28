@@ -9,7 +9,6 @@ from operators import (
     LoadDimensionOperator,
     DataQualityOperator,
 )
-from helpers import SqlQueries
 
 default_args = {
     "owner": "regokan",
@@ -26,9 +25,8 @@ default_args = {
     max_active_runs=1,
 )
 def final_project():
-
+    """
     start_operator = DummyOperator(task_id="Begin_execution")
-
     stage_events_to_redshift = StageToRedshiftOperator(
         task_id="Stage_events",
         redshift_conn_id="redshift",
@@ -39,8 +37,6 @@ def final_project():
         s3_key="log-data",
         json_path="auto",
     )
-
-    '''
 
     stage_songs_to_redshift = StageToRedshiftOperator(
         task_id="Stage_songs",
@@ -53,10 +49,15 @@ def final_project():
         json_path="auto",
     )
 
+    """
+
     load_songplays_table = LoadFactOperator(
         task_id="Load_songplays_fact_table",
+        # redshift_conn_id="redshift",
+        # aws_credentials_id="aws_credentials",
     )
 
+    """
     load_user_dimension_table = LoadDimensionOperator(
         task_id="Load_user_dim_table",
     )
@@ -78,7 +79,7 @@ def final_project():
     )
 
     end_operator = DummyOperator(task_id="End_execution")
-    '''
+    """
 
 
 final_project_dag = final_project()
