@@ -6,7 +6,7 @@ from airflow.exceptions import AirflowException
 
 class StageToRedshiftOperator(BaseOperator):
     ui_color = "#358140"
-    template_fields = ("s3_bucket", "s3_key", "role_arn")
+    template_fields = ("s3_bucket", "s3_key", "role_arn", "json_path")
 
     @apply_defaults
     def __init__(
@@ -17,7 +17,7 @@ class StageToRedshiftOperator(BaseOperator):
         table="",
         s3_bucket="",
         s3_key="",
-        json_path="auto",
+        json_path="",
         *args,
         **kwargs,
     ):
