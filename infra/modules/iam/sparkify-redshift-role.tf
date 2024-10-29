@@ -73,8 +73,8 @@ resource "aws_iam_role_policy" "redshift_access_policy" {
       },
       {
         # sts:AssumeRole permission for Redshift Serverless to assume this role
-        Effect = "Allow",
-        Action = "sts:AssumeRole",
+        Effect   = "Allow",
+        Action   = "sts:AssumeRole",
         Resource = "${aws_iam_role.sparkify_redshift_serverless_role.arn}"
       }
     ]
