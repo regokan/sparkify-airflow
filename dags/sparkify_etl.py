@@ -13,9 +13,11 @@ from helpers.sql_queries import SqlQueries
 
 default_args = {
     "owner": "regokan",
+    "depends_on_past": False,
     "start_date": pendulum.now(),
     "retries": 3,
     "retry_delay": timedelta(minutes=5),
+    "catchup": False,
 }
 
 
