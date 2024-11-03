@@ -36,3 +36,13 @@ module "redshift" {
   redshift_username       = var.redshift_username
   redshift_password       = var.redshift_password
 }
+
+module "eks" {
+  source = "./modules/eks"
+
+  subnet_ids                                                         = [aws_subnet.sparkify_subnet1.id, aws_subnet.sparkify_subnet2.id]
+  sparkify_eks_cluster_role_arn                               = module.iam.sparkify_eks_cluster_role_arn
+  sparkify_node_group_role_arn                                = module.iam.sparkify_node_group_role_arn
+  sparkify_eks_role_policy_attachment                         = module.iam.sparkify_eks_role_policy_attachment
+  sparkify_eks_role_vpc_resource_controller_policy_attachment = module.iam.sparkify_eks_role_vpc_resource_controller_policy_attachment
+}
