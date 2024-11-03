@@ -12,14 +12,13 @@ REDSHIFT_DB ?= $(REDSHIFT_DB)
 REDSHIFT_SQL_FILE ?= $(REDSHIFT_SQL_FILE)
 REDSHIFT_ROLE_ARN ?= $(REDSHIFT_ROLE_ARN)
 
-# Airflow setup commands
-AWS_CREDENTIALS_URI=aws://$(AWS_ACCESS_KEY):$(shell echo $(AWS_SECRET_ACCESS_KEY) | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read().strip()))")@
-REDSHIFT_URI=redshift://$(REDSHIFT_USER):$(REDSHIFT_PASSWORD)@$(REDSHIFT_HOST):$(REDSHIFT_PORT)/$(REDSHIFT_DB)
-S3_BUCKET_NAME ?= $(S3_BUCKET)
-S3_PREFIX ?= data-pipelines
+# EKS connection details
+EKS_CLUSTER_NAME ?= $(EKS_CLUSTER_NAME)
+RELEASE_NAME ?= $(RELEASE_NAME)
+DOCKER_IMAGE ?= $(DOCKER_IMAGE)
+DOCKER_IMAGE_TAG ?= $(DOCKER_IMAGE_TAG)
 
-
-.PHONY: setup-aws-credentials setup-redshift setup-s3 docker-up docker-down docker-restart check-docker run-sql
+.PHONY: setup deploy-airflow setup-eks
 
 # Default target
 all: setup
@@ -36,6 +35,85 @@ setup-env:
 	@test -n "$(REDSHIFT_PORT)"
 	@test -n "$(REDSHIFT_DB)"
 	@test -n "$(REDSHIFT_SQL_FILE)"
+
+# Connect to the EKS cluster using AWS CLI
+connect-eks:
+	@echo "Connecting to EKS cluster $(EKS_CLUSTER_NAME)..."
+	aws eks update-kubeconfig --name $(EKS_CLUSTER_NAME) --region us-east-1 --alias airflow-cluster
+
+# Create the namespace for Airflow if it doesn’t exist
+create-namespace: connect-eks
+	@kubectl get namespace $(NAMESPACE) || kubectl create namespace $(NAMESPACE)
+
+# Create AWS Airflow Connection in Production
+setup-aws-credentials-eks: connect-eks
+	@echo "Setting up AWS connection in Airflow on EKS..."
+	@if ! kubectl exec -it deployment/airflow-webserver -n $(NAMESPACE) -- \
+		airflow connections get aws_credentials > /dev/null 2>&1; then \
+		echo "Creating AWS connection..."; \
+		kubectl exec -it deployment/airflow-webserver -n $(NAMESPACE) -- \
+		airflow connections add aws_credentials \
+			--conn-type aws \
+			--conn-login "$(AWS_ACCESS_KEY)" \
+			--conn-password "$(AWS_SECRET_ACCESS_KEY)"; \
+	else \
+		echo "AWS connection already exists. Skipping creation."; \
+	fi
+
+# Create Redshift Airflow Connection in Production
+setup-redshift-eks: connect-eks
+	@echo "Setting up Redshift connection in Airflow on EKS..."
+	@if ! kubectl exec -it deployment/airflow-webserver -n $(NAMESPACE) -- \
+		airflow connections get redshift > /dev/null 2>&1; then \
+		echo "Creating Redshift connection..."; \
+		kubectl exec -it deployment/airflow-webserver -n $(NAMESPACE) -- \
+		airflow connections add redshift --conn-uri '$(REDSHIFT_URI)'; \
+	else \
+		echo "Redshift connection already exists. Skipping creation."; \
+	fi
+
+setup-eks: connect-eks setup-aws-credentials-eks setup-redshift-eks
+
+configure-ebs-csi-driver: connect-eks
+	helm repo update
+	helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+	--namespace kube-system \
+	--set image.repository=602401143452.dkr.ecr.us-east-1.amazonaws.com/eks/aws-ebs-csi-driver \
+	--set controller.serviceAccount.create=true \
+	--set controller.replicaCount=2 \
+	--set enableVolumeScheduling=true \
+	--set enableVolumeResizing=true \
+	--set enableVolumeSnapshot=true
+
+
+# Deploy Airflow to EKS using Helm chart
+deploy-airflow: connect-eks create-namespace
+	helm repo add apache-airflow https://airflow.apache.org || true
+	@echo "Checking for existing airflow-webserver-secret-key..."
+	@if kubectl get secret airflow-webserver-secret-key --namespace $(NAMESPACE) > /dev/null 2>&1; then \
+		echo "Existing secret found, updating metadata..."; \
+		kubectl label secret airflow-webserver-secret-key \
+			app.kubernetes.io/managed-by=Helm \
+			--namespace $(NAMESPACE) --overwrite; \
+		kubectl annotate secret airflow-webserver-secret-key \
+			meta.helm.sh/release-name=${RELEASE_NAME} \
+			meta.helm.sh/release-namespace=$(NAMESPACE) \
+			--namespace $(NAMESPACE) --overwrite; \
+	else \
+		echo "No existing secret found, proceeding with Helm install..."; \
+	fi
+	@echo "Deploying Airflow with Helm..."
+	@helm upgrade --install airflow apache-airflow/airflow \
+		--namespace ${NAMESPACE} \
+		--timeout 15m
+
+upgrade-airflow: connect-eks
+	@docker build --pull --tag ${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}.
+	@docker push ${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}
+	@helm upgrade --install airflow apache-airflow/airflow \
+		--namespace ${NAMESPACE} \
+		--timeout 15m
+
 
 # Check if Docker Compose is running
 check-docker:
@@ -71,7 +149,7 @@ setup-s3: check-docker setup-env
 	@docker compose exec airflow-webserver airflow variables set role_arn $(REDSHIFT_ROLE_ARN)
 
 # Full setup
-setup: docker-up setup-aws-credentials setup-redshift setup-s3 run-sql
+setup: docker-up setup-aws-credentials setup-redshift setup-s3
 	@echo "Airflow connections and variables have been set up."
 
 # Cleanup: remove Airflow connections and variables
